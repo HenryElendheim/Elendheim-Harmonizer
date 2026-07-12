@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#FF0B0D10</color>
+    <color name="icon_background">#FF14181D</color>
+    <color name="voice_accent">#FF35E0C8</color>
+    <color name="fifth_accent">#FFF2A63B</color>
+</resources>

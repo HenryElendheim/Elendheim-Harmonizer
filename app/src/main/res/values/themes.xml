@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Base window theme, dark-first. This only styles the window before Compose
+      draws; the full UI theme lives in ui/theme. Extends the platform theme so
+      no extra AppCompat/Material XML dependency is needed.
+    -->
+    <style name="Theme.ElendheimHarmonizer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
