@@ -1,6 +1,7 @@
 package com.elendheim.harmonizer.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +14,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -24,26 +28,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.elendheim.harmonizer.R
 import com.elendheim.harmonizer.audio.PitchDetector
+import com.elendheim.harmonizer.audio.semitonesToRatio
+import com.elendheim.harmonizer.intervalShortLabel
 import com.elendheim.harmonizer.ui.theme.FifthAccent
 import com.elendheim.harmonizer.ui.theme.Muted
 import com.elendheim.harmonizer.ui.theme.VoiceAccent
 
 /**
- * The whole app is one screen: a big button you tap to sing through, a live
- * readout of your note and the fifth stacked on top, and one slider for how
- * loud that fifth sits.
+ * The home screen: a big button you tap to sing through, a live readout of your
+ * note and the harmony stacked on it, one quick level slider, and a gear that
+ * opens the full settings.
  */
 @Composable
 fun HarmonizerScreen(
@@ -51,10 +59,20 @@ fun HarmonizerScreen(
     hasPermission: Boolean,
     level: Float,
     note: Double?,
-    fifthLevel: Float,
+    primarySemitones: Int,
+    secondEnabled: Boolean,
+    secondSemitones: Int,
+    primaryLevel: Float,
+    largeText: Boolean,
+    highContrast: Boolean,
+    reduceMotion: Boolean,
     onToggle: () -> Unit,
-    onFifthLevelChange: (Float) -> Unit,
+    onPrimaryLevelChange: (Float) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
+    val scale = if (largeText) 1.22f else 1f
+    val muted = if (highContrast) Color(0xFFD5DBE0) else Muted
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -62,18 +80,27 @@ fun HarmonizerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp, vertical = 24.dp),
+                .systemBarsPadding()
+                .padding(horizontal = 28.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Header()
+            TopBar(scale = scale, onOpenSettings = onOpenSettings)
 
             Spacer(Modifier.weight(1f))
 
-            NoteReadout(running = running, note = note)
+            NoteReadout(
+                running = running,
+                note = note,
+                primarySemitones = primarySemitones,
+                secondEnabled = secondEnabled,
+                secondSemitones = secondSemitones,
+                scale = scale,
+                muted = muted,
+            )
 
             Spacer(Modifier.height(28.dp))
 
-            SingButton(running = running, level = level, onToggle = onToggle)
+            SingButton(running = running, level = level, reduceMotion = reduceMotion, onToggle = onToggle)
 
             Spacer(Modifier.height(20.dp))
 
@@ -83,22 +110,21 @@ fun HarmonizerScreen(
                     running -> "Listening. Sing something."
                     else -> "Tap and sing"
                 },
-                style = MaterialTheme.typography.bodyLarge,
-                color = Muted,
+                fontSize = 17.sp * scale,
+                color = muted,
                 textAlign = TextAlign.Center,
             )
 
             Spacer(Modifier.weight(1f))
 
-            FifthMix(fifthLevel = fifthLevel, onChange = onFifthLevelChange)
+            QuickLevel(primaryLevel = primaryLevel, muted = muted, scale = scale, onChange = onPrimaryLevelChange)
 
             Spacer(Modifier.height(12.dp))
 
             Text(
                 text = "Best with headphones, so the speaker doesn't loop back.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Muted,
-                fontSize = 14.sp,
+                fontSize = 14.sp * scale,
+                color = muted,
                 textAlign = TextAlign.Center,
             )
         }
@@ -106,62 +132,117 @@ fun HarmonizerScreen(
 }
 
 @Composable
-private fun Header() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = "Elendheim Harmonizer",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Text(
-            text = "Sing. Hear a fifth on top.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = Muted,
-        )
+private fun TopBar(scale: Float, onOpenSettings: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Elendheim Harmonizer",
+                fontSize = 20.sp * scale,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = "Sing. Hear a fifth on top.",
+                fontSize = 15.sp * scale,
+                color = Muted,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(44.dp)
+                .clip(RoundedCornerShape(percent = 50))
+                .clickable(onClick = onOpenSettings),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_settings),
+                contentDescription = "Settings",
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(26.dp),
+            )
+        }
     }
 }
 
 @Composable
-private fun NoteReadout(running: Boolean, note: Double?) {
+private fun NoteReadout(
+    running: Boolean,
+    note: Double?,
+    primarySemitones: Int,
+    secondEnabled: Boolean,
+    secondSemitones: Int,
+    scale: Float,
+    muted: Color,
+) {
     val you = PitchDetector.noteName(note)
-    val fifth = PitchDetector.noteName(note?.let { it * 1.5 })
+    val primary = PitchDetector.noteName(note?.let { it * semitonesToRatio(primarySemitones) })
+    val second = PitchDetector.noteName(note?.let { it * semitonesToRatio(secondSemitones) })
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        NotePill(label = "You", value = if (running) you else "--", accent = VoiceAccent)
-        Text(
-            text = "+5th",
-            color = Muted,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        NotePill(label = "Fifth", value = if (running) fifth else "--", accent = FifthAccent)
+        NotePill(label = "You", value = if (running) you else "--", accent = VoiceAccent, scale = scale, muted = muted)
+        Chip(text = intervalShortLabel(primarySemitones), muted = muted, scale = scale)
+        NotePill(label = "Harmony", value = if (running) primary else "--", accent = FifthAccent, scale = scale, muted = muted)
+    }
+
+    if (secondEnabled) {
+        Spacer(Modifier.height(10.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Chip(text = intervalShortLabel(secondSemitones), muted = muted, scale = scale)
+            NotePill(
+                label = "2nd voice",
+                value = if (running) second else "--",
+                accent = VoiceAccent,
+                scale = scale * 0.8f,
+                muted = muted,
+            )
+        }
     }
 }
 
 @Composable
-private fun NotePill(label: String, value: String, accent: Color) {
+private fun Chip(text: String, muted: Color, scale: Float) {
+    Text(
+        text = text,
+        color = muted,
+        fontSize = 15.sp * scale,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+}
+
+@Composable
+private fun NotePill(label: String, value: String, accent: Color, scale: Float, muted: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
-            fontSize = 44.sp,
+            fontSize = 44.sp * scale,
             fontWeight = FontWeight.SemiBold,
             color = accent,
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = Muted,
+            fontSize = 15.sp * scale,
+            fontWeight = FontWeight.SemiBold,
+            color = muted,
         )
     }
 }
 
 @Composable
-private fun SingButton(running: Boolean, level: Float, onToggle: () -> Unit) {
-    // The ring breathes with your voice when active, and sits calm when idle.
+private fun SingButton(running: Boolean, level: Float, reduceMotion: Boolean, onToggle: () -> Unit) {
     val target = if (running) 0.15f + level.coerceIn(0f, 1f) * 0.85f else 0.08f
-    val pulse by animateFloatAsState(targetValue = target, label = "pulse")
+    val animated by animateFloatAsState(targetValue = target, label = "pulse")
+    val pulse = if (reduceMotion) target else animated
 
     Box(
         modifier = Modifier
@@ -171,7 +252,6 @@ private fun SingButton(running: Boolean, level: Float, onToggle: () -> Unit) {
             .clickable(onClick = onToggle),
         contentAlignment = Alignment.Center,
     ) {
-        // Glow ring that reacts to level.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -185,7 +265,6 @@ private fun SingButton(running: Boolean, level: Float, onToggle: () -> Unit) {
                     )
                 )
         )
-        // Core disc with the glyph drawn on top (72% of the button).
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.72f)
@@ -219,7 +298,7 @@ private fun DrawScope.drawStopGlyph(color: Color) {
         color = color,
         topLeft = topLeft,
         size = Size(s, s),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.18f, s * 0.18f),
+        cornerRadius = CornerRadius(s * 0.18f, s * 0.18f),
     )
 }
 
@@ -229,14 +308,12 @@ private fun DrawScope.drawMicGlyph(color: Color) {
     val capsuleW = w * 0.34f
     val capsuleH = h * 0.5f
     val cx = w / 2f
-    // Capsule body of the mic.
     drawRoundRect(
         color = color,
         topLeft = Offset(cx - capsuleW / 2f, h * 0.1f),
         size = Size(capsuleW, capsuleH),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(capsuleW / 2f, capsuleW / 2f),
+        cornerRadius = CornerRadius(capsuleW / 2f, capsuleW / 2f),
     )
-    // Cradle arc.
     val stroke = Stroke(width = w * 0.07f)
     val arcSize = capsuleW * 1.9f
     drawArc(
@@ -248,7 +325,6 @@ private fun DrawScope.drawMicGlyph(color: Color) {
         size = Size(arcSize, arcSize),
         style = stroke,
     )
-    // Stem and base.
     drawLine(
         color = color,
         start = Offset(cx, h * 0.78f),
@@ -264,21 +340,22 @@ private fun DrawScope.drawMicGlyph(color: Color) {
 }
 
 @Composable
-private fun FifthMix(fifthLevel: Float, onChange: (Float) -> Unit) {
+private fun QuickLevel(primaryLevel: Float, muted: Color, scale: Float, onChange: (Float) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("Fifth level", color = Muted, style = MaterialTheme.typography.labelLarge)
+            Text("Harmony level", color = muted, fontSize = 15.sp * scale, fontWeight = FontWeight.SemiBold)
             Text(
-                "${(fifthLevel * 100).toInt()}%",
+                "${(primaryLevel * 100).toInt()}%",
                 color = FifthAccent,
-                style = MaterialTheme.typography.labelLarge,
+                fontSize = 15.sp * scale,
+                fontWeight = FontWeight.SemiBold,
             )
         }
         Slider(
-            value = fifthLevel,
+            value = primaryLevel,
             onValueChange = onChange,
             valueRange = 0f..1f,
             colors = SliderDefaults.colors(

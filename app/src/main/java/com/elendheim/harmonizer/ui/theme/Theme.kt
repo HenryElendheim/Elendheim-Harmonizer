@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.elendheim.harmonizer.ThemeMode
 
 private val DarkColors = darkColorScheme(
     primary = VoiceAccent,
@@ -21,8 +22,6 @@ private val DarkColors = darkColorScheme(
     error = Danger,
 )
 
-// A light scheme exists for completeness, but the app is designed dark-first
-// and defaults to the dark palette regardless of system setting.
 private val LightColors = lightColorScheme(
     primary = Color(0xFF0E8A7A),
     secondary = Color(0xFFB9791F),
@@ -33,14 +32,45 @@ private val LightColors = lightColorScheme(
     error = Danger,
 )
 
+// High contrast pushes the background darker/lighter and the text to the edges
+// of the range, so everything reads clearly.
+private val DarkHighContrast = darkColorScheme(
+    primary = VoiceAccent,
+    secondary = FifthAccent,
+    background = Color(0xFF000000),
+    surface = Color(0xFF0C0F13),
+    onBackground = Color(0xFFFFFFFF),
+    onSurface = Color(0xFFFFFFFF),
+    error = Danger,
+)
+private val LightHighContrast = lightColorScheme(
+    primary = Color(0xFF0E8A7A),
+    secondary = Color(0xFFB9791F),
+    background = Color(0xFFFFFFFF),
+    surface = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF000000),
+    onSurface = Color(0xFF000000),
+    error = Danger,
+)
+
 @Composable
 fun ElendheimHarmonizerTheme(
-    // Dark-first by default. Callers can opt into following the system.
-    followSystem: Boolean = false,
+    themeMode: ThemeMode = ThemeMode.DARK,
+    highContrast: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val dark = if (followSystem) isSystemInDarkTheme() else true
-    val colors = if (dark) DarkColors else LightColors
+    val dark = when (themeMode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
+    val colors = when {
+        dark && highContrast -> DarkHighContrast
+        dark -> DarkColors
+        highContrast -> LightHighContrast
+        else -> LightColors
+    }
 
     val view = LocalView.current
     if (!view.isInEditMode) {

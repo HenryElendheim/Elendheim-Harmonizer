@@ -7,14 +7,21 @@ import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.os.Process
 import kotlin.concurrent.thread
+import kotlin.math.pow
+
+/** Frequency multiplier for a shift of [semitones] (12 to the octave). */
+fun semitonesToRatio(semitones: Int): Float = 2.0.pow(semitones / 12.0).toFloat()
 
 /**
- * The live loop: read the microphone, stack a perfect fifth on top, play the
- * blend straight back out. Everything runs on one dedicated high-priority audio
- * thread so the round trip stays as tight as the device allows.
+ * The live loop: read the microphone, stack one or two harmony voices on top,
+ * play the blend straight back out. Everything runs on one dedicated
+ * high-priority audio thread so the round trip stays as tight as the device
+ * allows.
  *
- * Headphones are strongly recommended, otherwise the speaker feeds back into the
- * mic. The UI hints at this on first run.
+ * Two voices let you hold a high harmony and a low one at once (say a fifth up
+ * and an octave down). Each has its own interval, in semitones, and its own
+ * level. The clean voice is always kept in the mix. Headphones are strongly
+ * recommended, otherwise the speaker feeds back into the mic.
  */
 class HarmonizerEngine(
     private val onLevel: (Float) -> Unit,
@@ -24,9 +31,30 @@ class HarmonizerEngine(
     private var running = false
     private var worker: Thread? = null
 
-    /** Dry/wet blend for the fifth, 0f..1f. The clean voice always stays present. */
+    // Two harmony voices. Intervals are in semitones; levels are 0f..1f.
+    private val voiceAShifter = PitchShifter(semitonesToRatio(7))
+    private val voiceBShifter = PitchShifter(semitonesToRatio(-12))
+
     @Volatile
-    var fifthLevel: Float = 0.85f
+    var voiceALevel: Float = 0.85f
+
+    var voiceASemitones: Int = 7
+        set(value) {
+            field = value
+            voiceAShifter.ratio = semitonesToRatio(value)
+        }
+
+    @Volatile
+    var voiceBEnabled: Boolean = false
+
+    @Volatile
+    var voiceBLevel: Float = 0.7f
+
+    var voiceBSemitones: Int = -12
+        set(value) {
+            field = value
+            voiceBShifter.ratio = semitonesToRatio(value)
+        }
 
     val isRunning: Boolean get() = running
 
@@ -66,7 +94,6 @@ class HarmonizerEngine(
             return
         }
 
-        // A short block keeps latency down; we still double it for headroom.
         val block = 1024
         val recordBufferBytes = maxOf(inMin, block * 4 * 2)
         val trackBufferBytes = maxOf(outMin, block * 4 * 2)
@@ -106,8 +133,9 @@ class HarmonizerEngine(
             return
         }
 
-        val shifter = PitchShifter(PitchShifter.RATIO_FIFTH)
         val detector = PitchDetector(sampleRate)
+        voiceAShifter.reset()
+        voiceBShifter.reset()
 
         val input = FloatArray(block)
         val output = FloatArray(block)
@@ -123,12 +151,19 @@ class HarmonizerEngine(
                 val read = recorder.read(input, 0, block, AudioRecord.READ_BLOCKING)
                 if (read <= 0) continue
 
+                val levelA = voiceALevel
+                val levelB = if (voiceBEnabled) voiceBLevel else 0f
+
                 var peak = 0f
                 for (i in 0 until read) {
                     val dry = input[i]
-                    val wet = shifter.process(dry)
-                    // Keep the clean voice, add the fifth underneath, guard the ceiling.
-                    var mixed = dry + wet * fifthLevel
+
+                    // Always run both shifters so their buffers stay warm; a
+                    // muted voice just contributes zero.
+                    val wetA = voiceAShifter.process(dry) * levelA
+                    val wetB = voiceBShifter.process(dry) * levelB
+
+                    var mixed = dry + wetA + wetB
                     if (mixed > 1f) mixed = 1f
                     if (mixed < -1f) mixed = -1f
                     output[i] = mixed
@@ -139,7 +174,6 @@ class HarmonizerEngine(
 
                 player.write(output, 0, read, AudioTrack.WRITE_BLOCKING)
 
-                // Smooth the level for a calm meter, and name the note now and then.
                 levelSmoothed += (peak - levelSmoothed) * 0.3f
                 onLevel(levelSmoothed)
 

@@ -5,7 +5,7 @@ import kotlin.math.cos
 import kotlin.math.floor
 
 /**
- * A low-latency, fixed-ratio pitch shifter.
+ * A low-latency pitch shifter with a live-adjustable ratio.
  *
  * This is a time-domain granular shifter: incoming audio is written into a small
  * circular buffer, and two read taps sweep through it at a rate that raises (or
@@ -16,13 +16,18 @@ import kotlin.math.floor
  *
  * It runs sample-by-sample with no FFT, which keeps latency low enough to sing
  * through live. On steady tones there's a gentle chorus-like character; on a real
- * voice, natural vibrato and breath smear it into something musical. For a perfect
- * fifth pass [RATIO_FIFTH].
+ * voice, natural vibrato and breath smear it into something musical. [ratio] can
+ * be changed at any time (e.g. when the interval knob moves); it is read fresh on
+ * every sample. For a perfect fifth use [RATIO_FIFTH].
  */
 class PitchShifter(
-    private val ratio: Float,
+    initialRatio: Float,
     grainSize: Int = DEFAULT_GRAIN
 ) {
+    /** Frequency multiplier. Safe to set from another thread while running. */
+    @Volatile
+    var ratio: Float = initialRatio
+
     private val grain = grainSize
     private val size = grainSize * 2
     private val buffer = FloatArray(size)

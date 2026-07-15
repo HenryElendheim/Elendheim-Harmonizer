@@ -4,41 +4,68 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import com.elendheim.harmonizer.audio.HarmonizerEngine
 import com.elendheim.harmonizer.ui.HarmonizerScreen
+import com.elendheim.harmonizer.ui.SettingsScreen
 import com.elendheim.harmonizer.ui.theme.ElendheimHarmonizerTheme
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        val store = SettingsStore(this)
         setContent {
-            ElendheimHarmonizerTheme {
-                HarmonizerApp()
+            var settings by remember { mutableStateOf(store.load()) }
+            ElendheimHarmonizerTheme(
+                themeMode = settings.themeMode,
+                highContrast = settings.highContrast,
+            ) {
+                HarmonizerApp(
+                    settings = settings,
+                    onSettingsChange = {
+                        settings = it
+                        store.save(it)
+                    },
+                )
             }
         }
     }
 }
 
 @androidx.compose.runtime.Composable
-private fun HarmonizerApp() {
-    val context = LocalContext.current
+private fun HarmonizerApp(
+    settings: Settings,
+    onSettingsChange: (Settings) -> Unit,
+) {
+    val context = LocalView.current.context
+    val view = LocalView.current
+    val haptics = LocalHapticFeedback.current
 
     var running by remember { mutableStateOf(false) }
     var level by remember { mutableFloatStateOf(0f) }
     var note by remember { mutableStateOf<Double?>(null) }
-    var fifthLevel by remember { mutableFloatStateOf(0.85f) }
+    var showSettings by remember { mutableStateOf(false) }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
@@ -46,7 +73,6 @@ private fun HarmonizerApp() {
         )
     }
 
-    // One engine for the lifetime of this screen; state changes flow back via callbacks.
     val engine = remember {
         HarmonizerEngine(
             onLevel = { level = it },
@@ -54,12 +80,32 @@ private fun HarmonizerApp() {
         )
     }
 
-    // Stop cleanly if the screen goes away.
-    DisposableEffect(Unit) {
-        onDispose {
-            engine.stop()
-        }
+    // Push harmony settings into the engine whenever they change.
+    LaunchedEffect(
+        settings.primarySemitones,
+        settings.primaryLevel,
+        settings.secondEnabled,
+        settings.secondSemitones,
+        settings.secondLevel,
+    ) {
+        engine.voiceASemitones = settings.primarySemitones
+        engine.voiceALevel = settings.primaryLevel
+        engine.voiceBEnabled = settings.secondEnabled
+        engine.voiceBSemitones = settings.secondSemitones
+        engine.voiceBLevel = settings.secondLevel
     }
+
+    // Keep the screen awake while singing, if the user asked for it.
+    SideEffect {
+        view.keepScreenOn = settings.keepScreenOn && running
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { engine.stop() }
+    }
+
+    // System back closes settings first, rather than leaving the app.
+    BackHandler(enabled = showSettings) { showSettings = false }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -71,28 +117,49 @@ private fun HarmonizerApp() {
         }
     }
 
+    fun toggle() {
+        if (!hasPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        if (settings.haptics) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (running) {
+            engine.stop()
+            running = false
+        } else {
+            engine.start()
+            running = engine.isRunning
+        }
+    }
+
     HarmonizerScreen(
         running = running,
         hasPermission = hasPermission,
         level = level,
         note = note,
-        fifthLevel = fifthLevel,
-        onToggle = {
-            if (!hasPermission) {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                return@HarmonizerScreen
-            }
-            if (running) {
-                engine.stop()
-                running = false
-            } else {
-                engine.start()
-                running = engine.isRunning
-            }
+        primarySemitones = settings.primarySemitones,
+        secondEnabled = settings.secondEnabled,
+        secondSemitones = settings.secondSemitones,
+        primaryLevel = settings.primaryLevel,
+        largeText = settings.largeText,
+        highContrast = settings.highContrast,
+        reduceMotion = settings.reduceMotion,
+        onToggle = { toggle() },
+        onPrimaryLevelChange = {
+            onSettingsChange(settings.copy(primaryLevel = it))
         },
-        onFifthLevelChange = {
-            fifthLevel = it
-            engine.fifthLevel = it
-        },
+        onOpenSettings = { showSettings = true },
     )
+
+    AnimatedVisibility(
+        visible = showSettings,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        SettingsScreen(
+            settings = settings,
+            onChange = onSettingsChange,
+            onBack = { showSettings = false },
+        )
+    }
 }
