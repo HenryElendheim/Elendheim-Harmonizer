@@ -1,11 +1,19 @@
 name: Build APK
 
-# Builds a debug APK you can sideload. Runs when a release is published (and
-# attaches the APK to that release), or on demand from the Actions tab.
+# Builds a debug APK you can sideload. It runs in three situations:
+#  - a release is published in the UI -> the APK is attached to that release;
+#  - you run it by hand with a "release_tag" -> it creates that release,
+#    tags it, writes the standard notes, and attaches the APK;
+#  - you run it by hand with no tag -> it just builds the APK as an artifact.
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Set a tag like v1.0 to cut a release with the APK attached. Leave blank to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -32,7 +40,8 @@ jobs:
       - name: Name the APK after the version
         id: apk
         run: |
-          tag="${{ github.event.release.tag_name }}"
+          tag="${{ inputs.release_tag }}"
+          if [ -z "$tag" ]; then tag="${{ github.event.release.tag_name }}"; fi
           if [ -z "$tag" ]; then tag="${{ github.ref_name }}"; fi
           dest="Elendheim-Harmonizer-${tag}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$dest"
@@ -44,8 +53,25 @@ jobs:
           name: elendheim-harmonizer-apk
           path: ${{ steps.apk.outputs.path }}
 
-      - name: Attach the APK to the release
+      # When a release was published in the UI, attach the APK to it.
+      - name: Attach the APK to the published release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
+          files: ${{ steps.apk.outputs.path }}
+
+      # When run by hand with a tag, create the release with the standard notes.
+      - name: Cut a release and attach the APK
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: Elendheim Harmonizer ${{ inputs.release_tag }}
+          body: |
+            Sing and hear a perfect fifth stacked on top of your voice, live.
+
+            This app does three things:
+            - Listens to your voice through the mic.
+            - Stacks a perfect fifth on top in real time.
+            - Plays the blend back live as you sing.
           files: ${{ steps.apk.outputs.path }}
