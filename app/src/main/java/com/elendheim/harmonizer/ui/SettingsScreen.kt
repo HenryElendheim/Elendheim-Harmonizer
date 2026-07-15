@@ -163,9 +163,19 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(20.dp))
+            SectionTitle("Recordings", muted, scale)
+            SwitchRow(
+                "Save recordings",
+                "Keep each session as a .wav you can export",
+                settings.saveRecordings,
+                scale,
+                muted,
+            ) { onChange(settings.copy(saveRecordings = it)) }
+
+            Spacer(Modifier.height(20.dp))
             SectionTitle("About", muted, scale)
             Text(
-                "Elendheim Harmonizer v1.1",
+                "Elendheim Harmonizer v1.3",
                 fontSize = 16.sp * scale,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground,

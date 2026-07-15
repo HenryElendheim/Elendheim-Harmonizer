@@ -6,6 +6,7 @@ import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.os.Process
+import java.io.File
 import kotlin.concurrent.thread
 import kotlin.math.pow
 
@@ -26,10 +27,12 @@ fun semitonesToRatio(semitones: Int): Float = 2.0.pow(semitones / 12.0).toFloat(
 class HarmonizerEngine(
     private val onLevel: (Float) -> Unit,
     private val onNote: (Double?) -> Unit,
+    private val onRecordingSaved: (File) -> Unit = {},
 ) {
     @Volatile
     private var running = false
     private var worker: Thread? = null
+    private var pendingRecordFile: File? = null
 
     // Two harmony voices. Intervals are in semitones; levels are 0f..1f.
     private val voiceAShifter = PitchShifter(semitonesToRatio(7))
@@ -58,8 +61,13 @@ class HarmonizerEngine(
 
     val isRunning: Boolean get() = running
 
-    fun start() {
+    /**
+     * Begin monitoring. If [recordTo] is given, the harmonized output is written
+     * to that .wav file for the length of the session.
+     */
+    fun start(recordTo: File? = null) {
         if (running) return
+        pendingRecordFile = recordTo
         running = true
         worker = thread(name = "harmonizer-audio", priority = Thread.MAX_PRIORITY) {
             runLoop()
@@ -137,6 +145,12 @@ class HarmonizerEngine(
         voiceAShifter.reset()
         voiceBShifter.reset()
 
+        val recordFile = pendingRecordFile
+        val writer = recordFile?.let {
+            runCatching { WavFileWriter(it, sampleRate) }.getOrNull()
+        }
+        val minFrames = sampleRate / 2 // ignore recordings shorter than ~0.5s
+
         val input = FloatArray(block)
         val output = FloatArray(block)
 
@@ -173,6 +187,7 @@ class HarmonizerEngine(
                 }
 
                 player.write(output, 0, read, AudioTrack.WRITE_BLOCKING)
+                writer?.let { runCatching { it.write(output, read) } }
 
                 levelSmoothed += (peak - levelSmoothed) * 0.3f
                 onLevel(levelSmoothed)
@@ -190,6 +205,19 @@ class HarmonizerEngine(
             runCatching { player.stop() }
             recorder.release()
             player.release()
+
+            if (writer != null && recordFile != null) {
+                val frames = writer.frameCount
+                runCatching { writer.close() }
+                if (frames >= minFrames) {
+                    onRecordingSaved(recordFile)
+                } else {
+                    // Too short to be worth keeping.
+                    runCatching { recordFile.delete() }
+                }
+            }
+
+            pendingRecordFile = null
             running = false
         }
     }

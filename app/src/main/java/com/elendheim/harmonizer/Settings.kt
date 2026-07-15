@@ -24,6 +24,8 @@ data class Settings(
     val reduceMotion: Boolean = false,
     val haptics: Boolean = true,
     val keepScreenOn: Boolean = true,
+    // Recordings
+    val saveRecordings: Boolean = true,
 ) {
     companion object {
         /** Intervals are capped at an octave either way. */
@@ -52,6 +54,7 @@ class SettingsStore(context: Context) {
             reduceMotion = prefs.getBoolean("reduceMotion", d.reduceMotion),
             haptics = prefs.getBoolean("haptics", d.haptics),
             keepScreenOn = prefs.getBoolean("keepScreenOn", d.keepScreenOn),
+            saveRecordings = prefs.getBoolean("saveRecordings", d.saveRecordings),
         )
     }
 
@@ -68,6 +71,7 @@ class SettingsStore(context: Context) {
             putBoolean("reduceMotion", s.reduceMotion)
             putBoolean("haptics", s.haptics)
             putBoolean("keepScreenOn", s.keepScreenOn)
+            putBoolean("saveRecordings", s.saveRecordings)
         }.apply()
     }
 }

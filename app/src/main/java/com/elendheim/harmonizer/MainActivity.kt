@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import com.elendheim.harmonizer.audio.HarmonizerEngine
 import com.elendheim.harmonizer.ui.HarmonizerScreen
+import com.elendheim.harmonizer.ui.RecordingsScreen
 import com.elendheim.harmonizer.ui.SettingsScreen
 import com.elendheim.harmonizer.ui.SplashScreen
 import com.elendheim.harmonizer.ui.theme.ElendheimHarmonizerTheme
@@ -80,6 +81,7 @@ private fun HarmonizerApp(
     var level by remember { mutableFloatStateOf(0f) }
     var note by remember { mutableStateOf<Double?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showRecordings by remember { mutableStateOf(false) }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
@@ -87,11 +89,20 @@ private fun HarmonizerApp(
         )
     }
 
+    val recordingStore = remember { RecordingStore(context.applicationContext) }
+
     val engine = remember {
         HarmonizerEngine(
             onLevel = { level = it },
             onNote = { note = it },
         )
+    }
+
+    // Start monitoring, recording to a new file if the user keeps recordings on.
+    fun startEngine() {
+        val target = if (settings.saveRecordings) recordingStore.newFile() else null
+        engine.start(target)
+        running = engine.isRunning
     }
 
     // Push harmony settings into the engine whenever they change.
@@ -118,17 +129,15 @@ private fun HarmonizerApp(
         onDispose { engine.stop() }
     }
 
-    // System back closes settings first, rather than leaving the app.
+    // System back closes an open screen first, rather than leaving the app.
     BackHandler(enabled = showSettings) { showSettings = false }
+    BackHandler(enabled = showRecordings) { showRecordings = false }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
-        if (granted) {
-            engine.start()
-            running = engine.isRunning
-        }
+        if (granted) startEngine()
     }
 
     fun toggle() {
@@ -141,8 +150,7 @@ private fun HarmonizerApp(
             engine.stop()
             running = false
         } else {
-            engine.start()
-            running = engine.isRunning
+            startEngine()
         }
     }
 
@@ -155,6 +163,7 @@ private fun HarmonizerApp(
         secondEnabled = settings.secondEnabled,
         secondSemitones = settings.secondSemitones,
         primaryLevel = settings.primaryLevel,
+        recording = running && settings.saveRecordings,
         largeText = settings.largeText,
         highContrast = settings.highContrast,
         reduceMotion = settings.reduceMotion,
@@ -163,6 +172,7 @@ private fun HarmonizerApp(
             onSettingsChange(settings.copy(primaryLevel = it))
         },
         onOpenSettings = { showSettings = true },
+        onOpenRecordings = { showRecordings = true },
     )
 
     AnimatedVisibility(
@@ -174,6 +184,14 @@ private fun HarmonizerApp(
             settings = settings,
             onChange = onSettingsChange,
             onBack = { showSettings = false },
+        )
+    }
+
+    // Composed only while open, so the list is fresh each time.
+    if (showRecordings) {
+        RecordingsScreen(
+            store = recordingStore,
+            onBack = { showRecordings = false },
         )
     }
 }

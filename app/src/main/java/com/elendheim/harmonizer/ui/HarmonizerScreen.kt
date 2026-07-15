@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
@@ -63,12 +64,14 @@ fun HarmonizerScreen(
     secondEnabled: Boolean,
     secondSemitones: Int,
     primaryLevel: Float,
+    recording: Boolean,
     largeText: Boolean,
     highContrast: Boolean,
     reduceMotion: Boolean,
     onToggle: () -> Unit,
     onPrimaryLevelChange: (Float) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenRecordings: () -> Unit,
 ) {
     val scale = if (largeText) 1.22f else 1f
     val muted = if (highContrast) Color(0xFFD5DBE0) else Muted
@@ -84,7 +87,11 @@ fun HarmonizerScreen(
                 .padding(horizontal = 28.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            TopBar(scale = scale, onOpenSettings = onOpenSettings)
+            TopBar(
+                scale = scale,
+                onOpenSettings = onOpenSettings,
+                onOpenRecordings = onOpenRecordings,
+            )
 
             Spacer(Modifier.weight(1f))
 
@@ -115,6 +122,25 @@ fun HarmonizerScreen(
                 textAlign = TextAlign.Center,
             )
 
+            if (recording) {
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .clip(RoundedCornerShape(percent = 50))
+                            .background(MaterialTheme.colorScheme.error)
+                    )
+                    Text(
+                        text = "Recording",
+                        fontSize = 14.sp * scale,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
+
             Spacer(Modifier.weight(1f))
 
             QuickLevel(primaryLevel = primaryLevel, muted = muted, scale = scale, onChange = onPrimaryLevelChange)
@@ -132,7 +158,7 @@ fun HarmonizerScreen(
 }
 
 @Composable
-private fun TopBar(scale: Float, onOpenSettings: () -> Unit) {
+private fun TopBar(scale: Float, onOpenSettings: () -> Unit, onOpenRecordings: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.align(Alignment.Center),
@@ -149,10 +175,20 @@ private fun TopBar(scale: Float, onOpenSettings: () -> Unit) {
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            Text(
-                text = "Sing. Hear a fifth on top.",
-                fontSize = 15.sp * scale,
-                color = Muted,
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(44.dp)
+                .clip(RoundedCornerShape(percent = 50))
+                .clickable(onClick = onOpenRecordings),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_recordings),
+                contentDescription = "Recordings",
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(26.dp),
             )
         }
         Box(
@@ -310,37 +346,48 @@ private fun DrawScope.drawStopGlyph(color: Color) {
 private fun DrawScope.drawMicGlyph(color: Color) {
     val w = size.width
     val h = size.height
-    val capsuleW = w * 0.34f
-    val capsuleH = h * 0.5f
     val cx = w / 2f
+    val stroke = w * 0.06f
+
+    // The head: a tall rounded capsule.
+    val capsuleW = w * 0.30f
+    val capTop = h * 0.08f
+    val capBottom = h * 0.50f
+    val capCenterY = (capTop + capBottom) / 2f
     drawRoundRect(
         color = color,
-        topLeft = Offset(cx - capsuleW / 2f, h * 0.1f),
-        size = Size(capsuleW, capsuleH),
+        topLeft = Offset(cx - capsuleW / 2f, capTop),
+        size = Size(capsuleW, capBottom - capTop),
         cornerRadius = CornerRadius(capsuleW / 2f, capsuleW / 2f),
     )
-    val stroke = Stroke(width = w * 0.07f)
-    val arcSize = capsuleW * 1.9f
+
+    // The cradle: a U that wraps the lower head and rises up both sides.
+    val radius = capsuleW * 0.92f
     drawArc(
         color = color,
-        startAngle = 20f,
-        sweepAngle = 140f,
+        startAngle = -20f,
+        sweepAngle = 220f,
         useCenter = false,
-        topLeft = Offset(cx - arcSize / 2f, h * 0.2f),
-        size = Size(arcSize, arcSize),
-        style = stroke,
+        topLeft = Offset(cx - radius, capCenterY - radius),
+        size = Size(radius * 2f, radius * 2f),
+        style = Stroke(width = stroke, cap = StrokeCap.Round),
+    )
+
+    // Stem down from the cradle, and the stand at the bottom.
+    val stemTop = capCenterY + radius
+    drawLine(
+        color = color,
+        start = Offset(cx, stemTop),
+        end = Offset(cx, h * 0.86f),
+        strokeWidth = stroke,
+        cap = StrokeCap.Round,
     )
     drawLine(
         color = color,
-        start = Offset(cx, h * 0.78f),
-        end = Offset(cx, h * 0.9f),
-        strokeWidth = w * 0.07f,
-    )
-    drawLine(
-        color = color,
-        start = Offset(cx - w * 0.13f, h * 0.9f),
-        end = Offset(cx + w * 0.13f, h * 0.9f),
-        strokeWidth = w * 0.07f,
+        start = Offset(cx - w * 0.16f, h * 0.86f),
+        end = Offset(cx + w * 0.16f, h * 0.86f),
+        strokeWidth = stroke,
+        cap = StrokeCap.Round,
     )
 }
 
