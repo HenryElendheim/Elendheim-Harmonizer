@@ -43,6 +43,8 @@ jobs:
           tag="${{ inputs.release_tag }}"
           if [ -z "$tag" ]; then tag="${{ github.event.release.tag_name }}"; fi
           if [ -z "$tag" ]; then tag="${{ github.ref_name }}"; fi
+          # Branch refs can contain slashes; keep the filename flat.
+          tag="${tag//\//-}"
           dest="Elendheim-Harmonizer-${tag}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$dest"
           echo "path=$dest" >> "$GITHUB_OUTPUT"
