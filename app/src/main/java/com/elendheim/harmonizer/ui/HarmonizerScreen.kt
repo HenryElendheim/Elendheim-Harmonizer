@@ -138,6 +138,11 @@ private fun TopBar(scale: Float, onOpenSettings: () -> Unit) {
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            HarmonizerLogo(
+                modifier = Modifier
+                    .size(40.dp * scale)
+                    .padding(bottom = 6.dp)
+            )
             Text(
                 text = "Elendheim Harmonizer",
                 fontSize = 20.sp * scale,

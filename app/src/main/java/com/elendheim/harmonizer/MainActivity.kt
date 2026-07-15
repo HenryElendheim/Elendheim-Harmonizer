@@ -27,7 +27,9 @@ import androidx.core.content.ContextCompat
 import com.elendheim.harmonizer.audio.HarmonizerEngine
 import com.elendheim.harmonizer.ui.HarmonizerScreen
 import com.elendheim.harmonizer.ui.SettingsScreen
+import com.elendheim.harmonizer.ui.SplashScreen
 import com.elendheim.harmonizer.ui.theme.ElendheimHarmonizerTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -37,17 +39,29 @@ class MainActivity : ComponentActivity() {
         val store = SettingsStore(this)
         setContent {
             var settings by remember { mutableStateOf(store.load()) }
+
+            // A short splash, half a second at most, then straight into the app.
+            var showSplash by remember { mutableStateOf(true) }
+            LaunchedEffect(Unit) {
+                delay(500)
+                showSplash = false
+            }
+
             ElendheimHarmonizerTheme(
                 themeMode = settings.themeMode,
                 highContrast = settings.highContrast,
             ) {
-                HarmonizerApp(
-                    settings = settings,
-                    onSettingsChange = {
-                        settings = it
-                        store.save(it)
-                    },
-                )
+                if (showSplash) {
+                    SplashScreen()
+                } else {
+                    HarmonizerApp(
+                        settings = settings,
+                        onSettingsChange = {
+                            settings = it
+                            store.save(it)
+                        },
+                    )
+                }
             }
         }
     }

@@ -10,6 +10,14 @@ Everything worth noting about each version of Elendheim Harmonizer lives here.
 Every release gets three plain lines describing what the app does, and — once
 the build workflow has run — an APK attached to it.
 
+## Elendheim Harmonizer v1.2 — 2026-07-15
+
+A fresh look.
+
+- New logo: three stacked cyan waves, used for the app icon and in-app.
+- New splash screen with the logo and name, gone in half a second.
+- Recoloured the whole app to match the logo's cyans.
+
 ## Elendheim Harmonizer v1.1 — 2026-07-15
 
 Harmony you can shape, and a proper settings menu.

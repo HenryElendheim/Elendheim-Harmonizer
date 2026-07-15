@@ -23,8 +23,8 @@ private val DarkColors = darkColorScheme(
 )
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF0E8A7A),
-    secondary = Color(0xFFB9791F),
+    primary = Color(0xFF0E8FA6),
+    secondary = Color(0xFF1E93A8),
     background = Color(0xFFF6F8F9),
     surface = Color(0xFFFFFFFF),
     onBackground = Color(0xFF14181D),
@@ -44,8 +44,8 @@ private val DarkHighContrast = darkColorScheme(
     error = Danger,
 )
 private val LightHighContrast = lightColorScheme(
-    primary = Color(0xFF0E8A7A),
-    secondary = Color(0xFFB9791F),
+    primary = Color(0xFF0A6F86),
+    secondary = Color(0xFF0B6E85),
     background = Color(0xFFFFFFFF),
     surface = Color(0xFFFFFFFF),
     onBackground = Color(0xFF000000),

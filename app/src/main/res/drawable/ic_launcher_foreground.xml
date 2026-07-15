@@ -1,39 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Microphone mark, centered in the 108dp adaptive foreground safe zone. -->
+<!--
+  The logo mark: three offset zigzags (stacked harmony waves), sized to sit
+  inside the adaptive icon's safe circle. Teal at the back, bright cyan in the
+  middle, light cyan on top.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Mic capsule -->
+    <!-- Teal (back / shadow) -->
     <path
-        android:fillColor="#35E0C8"
-        android:pathData="M44,40 A10,10 0 0 1 64,40 L64,48 A10,10 0 0 1 44,48 Z" />
-
-    <!-- Cradle -->
-    <path
-        android:strokeColor="#35E0C8"
-        android:strokeWidth="4"
+        android:strokeColor="#2E7C8D"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
-        android:pathData="M38,50 A16,16 0 0 0 70,50" />
+        android:strokeLineJoin="round"
+        android:pathData="M24,70.5 L36,57 L46.5,70.5 L55.5,52.5 L64.5,70.5 L75,57 L87,70.5" />
 
-    <!-- Stem -->
+    <!-- Bright cyan (middle) -->
     <path
-        android:strokeColor="#35E0C8"
-        android:strokeWidth="4"
+        android:strokeColor="#2FD9F2"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
-        android:pathData="M54,66 L54,74" />
+        android:strokeLineJoin="round"
+        android:pathData="M22.5,63 L34.5,49.5 L45,63 L54,45 L63,63 L73.5,49.5 L85.5,63" />
 
-    <!-- Base -->
+    <!-- Light cyan (top) -->
     <path
-        android:strokeColor="#35E0C8"
-        android:strokeWidth="4"
+        android:strokeColor="#CFF1F7"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
-        android:pathData="M46,74 L62,74" />
-
-    <!-- The stacked fifth, hinted as a small note above the mic. -->
-    <path
-        android:fillColor="#F2A63B"
-        android:pathData="M74,30 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+        android:strokeLineJoin="round"
+        android:pathData="M21,55.5 L33,42 L43.5,55.5 L52.5,37.5 L61.5,55.5 L72,42 L84,55.5" />
 </vector>
