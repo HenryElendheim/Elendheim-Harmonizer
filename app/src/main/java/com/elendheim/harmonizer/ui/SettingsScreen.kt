@@ -34,10 +34,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.elendheim.harmonizer.R
+import com.elendheim.harmonizer.ScaleType
 import com.elendheim.harmonizer.Settings
 import com.elendheim.harmonizer.ThemeMode
 import com.elendheim.harmonizer.intervalName
 import com.elendheim.harmonizer.intervalShortLabel
+import com.elendheim.harmonizer.keyName
 import com.elendheim.harmonizer.ui.theme.FifthAccent
 import com.elendheim.harmonizer.ui.theme.Muted
 import com.elendheim.harmonizer.ui.theme.VoiceAccent
@@ -96,21 +98,31 @@ fun SettingsScreen(
 
             SectionTitle("Harmony", muted, scale)
 
-            StepperRow(
-                label = "Interval",
-                valueLabel = intervalShortLabel(settings.primarySemitones),
-                caption = intervalName(settings.primarySemitones),
+            SwitchRow(
+                label = "First voice",
+                caption = "The harmony you pick",
+                checked = settings.primaryEnabled,
                 scale = scale,
                 muted = muted,
-                onDecrease = {
-                    onChange(settings.copy(primarySemitones = (settings.primarySemitones - 1).coerceAtLeast(Settings.MIN_SEMITONES)))
-                },
-                onIncrease = {
-                    onChange(settings.copy(primarySemitones = (settings.primarySemitones + 1).coerceAtMost(Settings.MAX_SEMITONES)))
-                },
-            )
-            LevelRow("Harmony level", settings.primaryLevel, muted, scale) {
-                onChange(settings.copy(primaryLevel = it))
+            ) { onChange(settings.copy(primaryEnabled = it)) }
+
+            if (settings.primaryEnabled) {
+                StepperRow(
+                    label = "Interval",
+                    valueLabel = intervalShortLabel(settings.primarySemitones),
+                    caption = intervalName(settings.primarySemitones),
+                    scale = scale,
+                    muted = muted,
+                    onDecrease = {
+                        onChange(settings.copy(primarySemitones = (settings.primarySemitones - 1).coerceAtLeast(Settings.MIN_SEMITONES)))
+                    },
+                    onIncrease = {
+                        onChange(settings.copy(primarySemitones = (settings.primarySemitones + 1).coerceAtMost(Settings.MAX_SEMITONES)))
+                    },
+                )
+                LevelRow("Harmony level", settings.primaryLevel, muted, scale) {
+                    onChange(settings.copy(primaryLevel = it))
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -138,6 +150,50 @@ fun SettingsScreen(
                 )
                 LevelRow("2nd voice level", settings.secondLevel, muted, scale) {
                     onChange(settings.copy(secondLevel = it))
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            SectionTitle("Autotune", muted, scale)
+
+            SwitchRow(
+                label = "Autotune",
+                caption = "Nudge your voice onto the notes",
+                checked = settings.autotuneEnabled,
+                scale = scale,
+                muted = muted,
+            ) { onChange(settings.copy(autotuneEnabled = it)) }
+
+            if (settings.autotuneEnabled) {
+                StepperRow(
+                    label = "Key",
+                    valueLabel = keyName(settings.autotuneKey),
+                    caption = "The key to snap to",
+                    scale = scale,
+                    muted = muted,
+                    onDecrease = { onChange(settings.copy(autotuneKey = (settings.autotuneKey + 11) % 12)) },
+                    onIncrease = { onChange(settings.copy(autotuneKey = (settings.autotuneKey + 1) % 12)) },
+                )
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                    Text("Scale", fontSize = 17.sp * scale, color = MaterialTheme.colorScheme.onBackground)
+                    Spacer(Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeChip("Major", settings.autotuneScale == ScaleType.MAJOR, scale) {
+                            onChange(settings.copy(autotuneScale = ScaleType.MAJOR))
+                        }
+                        ThemeChip("Minor", settings.autotuneScale == ScaleType.MINOR, scale) {
+                            onChange(settings.copy(autotuneScale = ScaleType.MINOR))
+                        }
+                        ThemeChip("Chromatic", settings.autotuneScale == ScaleType.CHROMATIC, scale) {
+                            onChange(settings.copy(autotuneScale = ScaleType.CHROMATIC))
+                        }
+                    }
+                }
+                LevelRow("Retune speed", settings.retuneSpeed, muted, scale) {
+                    onChange(settings.copy(retuneSpeed = it))
+                }
+                LevelRow("Humanizer", settings.humanizer, muted, scale) {
+                    onChange(settings.copy(humanizer = it))
                 }
             }
 
@@ -175,7 +231,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(20.dp))
             SectionTitle("About", muted, scale)
             Text(
-                "Elendheim Harmonizer v1.3",
+                "Elendheim Harmonizer v1.4",
                 fontSize = 16.sp * scale,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground,

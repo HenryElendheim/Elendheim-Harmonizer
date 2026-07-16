@@ -10,6 +10,18 @@ Everything worth noting about each version of Elendheim Harmonizer lives here.
 Every release gets three plain lines describing what the app does, and — once
 the build workflow has run — an APK attached to it.
 
+## Elendheim Harmonizer v1.4 — 2026-07-15
+
+Autotune, and a tidier home screen.
+
+- New autotune: pick a key and scale, then dial in how hard it snaps (retune
+  speed) and how natural it stays (humanizer). All sliders.
+- Turn the first voice on or off, just like the second.
+- The record button is now a clear play button.
+- Splash shows once on launch (not when you rotate) and lasts 1.3 seconds.
+- Fixed the Recordings screen sitting under the status bar, and added a
+  "Saved to Recordings" hint pointing at the top-left button.
+
 ## Elendheim Harmonizer v1.3 — 2026-07-15
 
 Recordings, and a mic that looks like one.

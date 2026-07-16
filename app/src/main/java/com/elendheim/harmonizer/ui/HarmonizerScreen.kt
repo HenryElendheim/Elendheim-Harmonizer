@@ -33,9 +33,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,11 +60,13 @@ fun HarmonizerScreen(
     hasPermission: Boolean,
     level: Float,
     note: Double?,
+    primaryEnabled: Boolean,
     primarySemitones: Int,
     secondEnabled: Boolean,
     secondSemitones: Int,
     primaryLevel: Float,
     recording: Boolean,
+    savedHintVisible: Boolean,
     largeText: Boolean,
     highContrast: Boolean,
     reduceMotion: Boolean,
@@ -93,11 +95,29 @@ fun HarmonizerScreen(
                 onOpenRecordings = onOpenRecordings,
             )
 
+            // A brief note pointing at the Recordings button after a take saves.
+            if (savedHintVisible) {
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "↖ Saved to Recordings",
+                        color = VoiceAccent,
+                        fontSize = 14.sp * scale,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+
             Spacer(Modifier.weight(1f))
 
             NoteReadout(
                 running = running,
                 note = note,
+                primaryEnabled = primaryEnabled,
                 primarySemitones = primarySemitones,
                 secondEnabled = secondEnabled,
                 secondSemitones = secondSemitones,
@@ -213,6 +233,7 @@ private fun TopBar(scale: Float, onOpenSettings: () -> Unit, onOpenRecordings: (
 private fun NoteReadout(
     running: Boolean,
     note: Double?,
+    primaryEnabled: Boolean,
     primarySemitones: Int,
     secondEnabled: Boolean,
     secondSemitones: Int,
@@ -228,8 +249,10 @@ private fun NoteReadout(
         horizontalArrangement = Arrangement.Center,
     ) {
         NotePill(label = "You", value = if (running) you else "--", accent = VoiceAccent, scale = scale, muted = muted)
-        Chip(text = intervalShortLabel(primarySemitones), muted = muted, scale = scale)
-        NotePill(label = "Harmony", value = if (running) primary else "--", accent = FifthAccent, scale = scale, muted = muted)
+        if (primaryEnabled) {
+            Chip(text = intervalShortLabel(primarySemitones), muted = muted, scale = scale)
+            NotePill(label = "Harmony", value = if (running) primary else "--", accent = FifthAccent, scale = scale, muted = muted)
+        }
     }
 
     if (secondEnabled) {
@@ -326,7 +349,7 @@ private fun SingButton(running: Boolean, level: Float, reduceMotion: Boolean, on
         ) {
             val glyphColor = if (running) Color(0xFF0B0D10) else VoiceAccent
             Canvas(modifier = Modifier.fillMaxWidth(0.42f).aspectRatio(1f)) {
-                if (running) drawStopGlyph(glyphColor) else drawMicGlyph(glyphColor)
+                if (running) drawStopGlyph(glyphColor) else drawPlayGlyph(glyphColor)
             }
         }
     }
@@ -343,51 +366,24 @@ private fun DrawScope.drawStopGlyph(color: Color) {
     )
 }
 
-private fun DrawScope.drawMicGlyph(color: Color) {
+private fun DrawScope.drawPlayGlyph(color: Color) {
     val w = size.width
     val h = size.height
-    val cx = w / 2f
-    val stroke = w * 0.06f
-
-    // The head: a tall rounded capsule.
-    val capsuleW = w * 0.30f
-    val capTop = h * 0.08f
-    val capBottom = h * 0.50f
-    val capCenterY = (capTop + capBottom) / 2f
-    drawRoundRect(
+    // A right-pointing triangle, nudged right so it looks optically centred.
+    val left = w * 0.34f
+    val right = w * 0.72f
+    val top = h * 0.26f
+    val bottom = h * 0.74f
+    val path = Path().apply {
+        moveTo(left, top)
+        lineTo(right, h / 2f)
+        lineTo(left, bottom)
+        close()
+    }
+    drawPath(
+        path = path,
         color = color,
-        topLeft = Offset(cx - capsuleW / 2f, capTop),
-        size = Size(capsuleW, capBottom - capTop),
-        cornerRadius = CornerRadius(capsuleW / 2f, capsuleW / 2f),
-    )
-
-    // The cradle: a U that wraps the lower head and rises up both sides.
-    val radius = capsuleW * 0.92f
-    drawArc(
-        color = color,
-        startAngle = -20f,
-        sweepAngle = 220f,
-        useCenter = false,
-        topLeft = Offset(cx - radius, capCenterY - radius),
-        size = Size(radius * 2f, radius * 2f),
-        style = Stroke(width = stroke, cap = StrokeCap.Round),
-    )
-
-    // Stem down from the cradle, and the stand at the bottom.
-    val stemTop = capCenterY + radius
-    drawLine(
-        color = color,
-        start = Offset(cx, stemTop),
-        end = Offset(cx, h * 0.86f),
-        strokeWidth = stroke,
-        cap = StrokeCap.Round,
-    )
-    drawLine(
-        color = color,
-        start = Offset(cx - w * 0.16f, h * 0.86f),
-        end = Offset(cx + w * 0.16f, h * 0.86f),
-        strokeWidth = stroke,
-        cap = StrokeCap.Round,
+        style = Fill,
     )
 }
 

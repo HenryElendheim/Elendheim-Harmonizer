@@ -17,8 +17,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -41,11 +43,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             var settings by remember { mutableStateOf(store.load()) }
 
-            // A short splash, half a second at most, then straight into the app.
-            var showSplash by remember { mutableStateOf(true) }
+            // A short splash on first launch. rememberSaveable keeps it from
+            // replaying when the activity is recreated, e.g. on rotation.
+            var showSplash by rememberSaveable { mutableStateOf(true) }
             LaunchedEffect(Unit) {
-                delay(500)
-                showSplash = false
+                if (showSplash) {
+                    delay(1300)
+                    showSplash = false
+                }
             }
 
             ElendheimHarmonizerTheme(
@@ -91,10 +96,21 @@ private fun HarmonizerApp(
 
     val recordingStore = remember { RecordingStore(context.applicationContext) }
 
+    var savedTick by remember { mutableIntStateOf(0) }
+    var savedHintVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(savedTick) {
+        if (savedTick > 0) {
+            savedHintVisible = true
+            delay(2500)
+            savedHintVisible = false
+        }
+    }
+
     val engine = remember {
         HarmonizerEngine(
             onLevel = { level = it },
             onNote = { note = it },
+            onRecordingSaved = { savedTick++ },
         )
     }
 
@@ -105,19 +121,19 @@ private fun HarmonizerApp(
         running = engine.isRunning
     }
 
-    // Push harmony settings into the engine whenever they change.
-    LaunchedEffect(
-        settings.primarySemitones,
-        settings.primaryLevel,
-        settings.secondEnabled,
-        settings.secondSemitones,
-        settings.secondLevel,
-    ) {
+    // Push harmony and autotune settings into the engine whenever they change.
+    LaunchedEffect(settings) {
+        engine.voiceAEnabled = settings.primaryEnabled
         engine.voiceASemitones = settings.primarySemitones
         engine.voiceALevel = settings.primaryLevel
         engine.voiceBEnabled = settings.secondEnabled
         engine.voiceBSemitones = settings.secondSemitones
         engine.voiceBLevel = settings.secondLevel
+        engine.autotuneEnabled = settings.autotuneEnabled
+        engine.autotuneKey = settings.autotuneKey
+        engine.autotuneScale = settings.autotuneScale
+        engine.retuneSpeed = settings.retuneSpeed
+        engine.humanizer = settings.humanizer
     }
 
     // Keep the screen awake while singing, if the user asked for it.
@@ -159,11 +175,13 @@ private fun HarmonizerApp(
         hasPermission = hasPermission,
         level = level,
         note = note,
+        primaryEnabled = settings.primaryEnabled,
         primarySemitones = settings.primarySemitones,
         secondEnabled = settings.secondEnabled,
         secondSemitones = settings.secondSemitones,
         primaryLevel = settings.primaryLevel,
         recording = running && settings.saveRecordings,
+        savedHintVisible = savedHintVisible,
         largeText = settings.largeText,
         highContrast = settings.highContrast,
         reduceMotion = settings.reduceMotion,
